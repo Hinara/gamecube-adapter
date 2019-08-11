@@ -1,16 +1,8 @@
-#ifndef __HID_GAMECUBE_ADAPTER_H_FILE
-#define __HID_GAMECUBE_ADAPTER_H_FILE
+#ifndef __GAMECUBE_ADAPTER_H_FILE
+#define __GAMECUBE_ADAPTER_H_FILE
 
 #include <linux/device.h>
 #include <linux/usb.h>
-
-/*
- * EP_OUT Output USB pipe of the gamecube adapter
- *
- * EP_IN Input USB pipe of the gamecube adapter
- */
-#define EP_OUT 0x02
-#define EP_IN 0x81
 
 /*
  * USB_VENDOR_ID_NINTENDO Nintendo USB vendor ID
@@ -28,11 +20,43 @@ enum gamecube_status {
 	GAMECUBE_WIRELESS
 };
 
-struct gamecube_data {
+struct ep_irq_pair {
+	struct usb_endpoint_descriptor *in;
+	struct usb_endpoint_descriptor *out;
+};
+
+struct gc_ep {
+	size_t			len;
+	u8			*data;
+	dma_addr_t		dma;
+	struct urb		*urb;
+};
+
+struct gc_out_ep {
+	struct gc_ep		ep;
+	struct usb_anchor 	anchor;
+	spinlock_t		lock;
+};
+
+struct gc_data {
 	struct usb_device	*udev;
+	struct usb_interface	*intf;
+	struct gc_ep		in;
+	struct gc_out_ep	out;
 	u8			rumbles[4];
-	struct work_struct	worker;
+	u8			data[37];
 	bool			halt;
 };
 
-#endif
+/* Packets */
+int gc_send_rumble(struct gc_data *gdata);
+int gc_send_init(struct gc_data *gdata);
+
+/* Display */
+void gc_display_state(struct gc_data *dev);
+
+/* Device attributes */
+int gc_init_attr(struct gc_data *gdata);
+void gc_deinit_attr(struct gc_data *gdata);
+
+#endif // __GAMECUBE_ADAPTER_H_FILE

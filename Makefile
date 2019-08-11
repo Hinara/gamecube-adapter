@@ -1,5 +1,10 @@
 obj-m +=	usb-gamecube-adapter.o
 
+usb-gamecube-adapter-objs:= \
+	usb-gamecube-adapter-attr.o \
+	usb-gamecube-adapter-packet.o \
+	usb-gamecube-adapter-setup.o \
+
 modules = $(obj-m:.o=.ko)
 
 all:
@@ -10,5 +15,9 @@ up:
 	sudo insmod $(modules)
 down:
 	sudo rmmod $(modules)
+
+du:
+	make down
+	make up
 
 .PHONY: all clean up down
