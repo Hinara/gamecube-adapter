@@ -9,7 +9,9 @@ static ssize_t gc_rumble_show(struct device *dev,
 	struct gc_data *gdata = dev_get_drvdata(dev);
 	if (!gdata)
 		return -EFAULT;
-	return sprintf(buf, "%d %d %d %d\n", gdata->rumbles[0], gdata->rumbles[1], gdata->rumbles[2], gdata->rumbles[3]);
+	return sprintf(buf, "%d %d %d %d\n",
+		       gdata->rumbles[0], gdata->rumbles[1],
+		       gdata->rumbles[2], gdata->rumbles[3]);
 }
 
 static ssize_t gc_rumble_store(struct device *dev,
@@ -61,8 +63,8 @@ static ssize_t gc_status(u8 status, char *buf)
 }
 
 static ssize_t gc_show_status(struct device *dev,
-		    struct device_attribute *attr,
-		    char *buf, int controller_no)
+			      struct device_attribute *attr,
+			      char *buf, int controller_no)
 {
 	struct gc_data *gdata = dev_get_drvdata(dev);
 	if (!gdata)
@@ -108,18 +110,17 @@ static DEVICE_ATTR(status4, S_IRUGO, gc_show_status4, NULL);
 
 /* Init and deinit of attributes files */
 
-
 static struct attribute *gc_attrs[] = {
-	&dev_attr_rumble.attr,
-	&dev_attr_status1.attr,
-	&dev_attr_status2.attr,
-	&dev_attr_status3.attr,
-	&dev_attr_status4.attr,
-	NULL,
+    &dev_attr_rumble.attr,
+    &dev_attr_status1.attr,
+    &dev_attr_status2.attr,
+    &dev_attr_status3.attr,
+    &dev_attr_status4.attr,
+    NULL,
 };
 
 static const struct attribute_group gc_attr_group = {
-	.attrs	= gc_attrs,
+    .attrs = gc_attrs,
 };
 
 int gc_init_attr(struct gc_data *gdata)

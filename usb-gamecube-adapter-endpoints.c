@@ -22,17 +22,11 @@ static void controller_irq_in(struct urb *urb)
 		goto exit;
 	}
 	if (dev->in.urb->actual_length != sizeof(dev->data))
-	{
 		dev_warn(&intf->dev, "Bad sized packet\n");
-	}
 	else if (dev->in.data[0] != 0x21)
-	{
 		dev_warn(&intf->dev, "Unknown opcode %d\n", dev->in.data[0]);
-	}
 	else
-	{
 		memcpy(dev->data, dev->in.data, sizeof(dev->data));
-	}
 exit:
 	error = usb_submit_urb(dev->in.urb, GFP_ATOMIC);
 	if (error)
@@ -70,20 +64,16 @@ exit:
 
 static int gc_alloc_ep(struct gc_data *dev, size_t len, struct gc_ep *ep)
 {
-	int error;
+	int error = -ENOMEM;
 
 	ep->len = len;
 	ep->data = usb_alloc_coherent(dev->udev, ep->len,
 				      GFP_KERNEL, &ep->dma);
 	if (!ep->data)
-		return -ENOMEM;
-
+		return error;
 	ep->urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!ep->urb)
-	{
-		error = -ENOMEM;
 		goto err_free_coherent;
-	}
 	return 0;
 
 err_free_coherent:
@@ -92,7 +82,7 @@ err_free_coherent:
 }
 
 static int gc_init_in_ep(struct gc_data *dev,
-		       struct usb_endpoint_descriptor *irq)
+			 struct usb_endpoint_descriptor *irq)
 {
 	struct gc_ep *ep = &dev->in;
 	int error = gc_alloc_ep(dev, irq->wMaxPacketSize, ep);
@@ -154,6 +144,7 @@ err_deinit_out:
 	gc_deinit_ep(dev, &dev->out.ep);
 	return error;
 }
+
 void gc_deinit_endpoints(struct gc_data *dev)
 {
 	gc_deinit_ep(dev, &dev->in);

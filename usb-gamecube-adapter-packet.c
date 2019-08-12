@@ -16,11 +16,10 @@ static int gc_send(struct gc_data *dev, void *buf, size_t len)
 	if (error) {
 		usb_unanchor_urb(dev->out.ep.urb);
 		return error;
-	}	
+	}
 	spin_unlock_irqrestore(&dev->out.lock, flags);
 	return 0;
 }
-
 
 int gc_send_rumble(struct gc_data *gdata)
 {
