@@ -20,11 +20,6 @@ enum gamecube_status {
 	GAMECUBE_WIRELESS
 };
 
-struct ep_irq_pair {
-	struct usb_endpoint_descriptor *in;
-	struct usb_endpoint_descriptor *out;
-};
-
 struct gc_ep {
 	size_t			len;
 	u8			*data;
@@ -58,5 +53,9 @@ void gc_display_state(struct gc_data *dev);
 /* Device attributes */
 int gc_init_attr(struct gc_data *gdata);
 void gc_deinit_attr(struct gc_data *gdata);
+
+/* Endpoints */
+int gc_init_endpoints(struct gc_data *dev);
+void gc_deinit_endpoints(struct gc_data *dev);
 
 #endif // __GAMECUBE_ADAPTER_H_FILE
