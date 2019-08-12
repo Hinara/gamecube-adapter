@@ -12,7 +12,6 @@ static int gc_send(struct gc_data *dev, void *buf, size_t len)
 	memcpy(packet, buf, len);
 	dev->out.ep.urb->transfer_buffer_length = len;
 	usb_anchor_urb(dev->out.ep.urb, &dev->out.anchor);
-	printk(KERN_ALERT "TEST");
 	error = usb_submit_urb(dev->out.ep.urb, GFP_ATOMIC);
 	if (error) {
 		usb_unanchor_urb(dev->out.ep.urb);
