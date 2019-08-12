@@ -161,22 +161,10 @@ int gc_usb_probe(struct usb_interface *iface,
 	struct usb_device *udev = interface_to_usbdev(iface);
 	struct ep_irq_pair eps = { NULL, NULL };
 	struct gc_data *dev;
-	int error = -ENOMEM;
-	size_t i = 0;
+	int error;
 
-	if (iface->cur_altsetting->desc.bNumEndpoints != 2)
-		return -ENODEV;
-	for (i = 0; i < 2; i++) {
-		struct usb_endpoint_descriptor *ep =
-			&iface->cur_altsetting->endpoint[i].desc;
-		if (usb_endpoint_xfer_int(ep)) {
-			if (usb_endpoint_dir_in(ep))
-				eps.in = ep;
-			else
-				eps.out = ep;
-			}
-	}
-	if (!eps.in || !eps.out || eps.out->wMaxPacketSize != 5 || eps.in->wMaxPacketSize != 37)
+	error = usb_find_common_endpoints(iface->cur_altsetting, NULL, NULL, &eps.in, &eps.out);
+	if (error || eps.out->wMaxPacketSize != 5 || eps.in->wMaxPacketSize != 37)
 		return -ENODEV;
 	dev = kzalloc(sizeof(struct gc_data), GFP_KERNEL);
 	if (!dev)
