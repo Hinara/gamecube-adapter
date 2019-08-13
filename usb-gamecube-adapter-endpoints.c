@@ -6,8 +6,7 @@ static void controller_irq_in(struct urb *urb)
 	struct usb_interface *intf = dev->intf;
 	int error;
 
-	switch (urb->status)
-	{
+	switch (urb->status) {
 	case 0:
 		break;
 	case -EOVERFLOW:
@@ -67,8 +66,7 @@ static int gc_alloc_ep(struct gc_data *dev, size_t len, struct gc_ep *ep)
 	int error = -ENOMEM;
 
 	ep->len = len;
-	ep->data = usb_alloc_coherent(dev->udev, ep->len,
-				      GFP_KERNEL, &ep->dma);
+	ep->data = usb_alloc_coherent(dev->udev, ep->len, GFP_KERNEL, &ep->dma);
 	if (!ep->data)
 		return error;
 	ep->urb = usb_alloc_urb(0, GFP_KERNEL);
@@ -91,8 +89,8 @@ static int gc_init_in_ep(struct gc_data *dev,
 		return error;
 	usb_fill_int_urb(ep->urb, dev->udev,
 			 usb_rcvintpipe(dev->udev, irq->bEndpointAddress),
-			 ep->data, ep->len,
-			 controller_irq_in, dev, irq->bInterval);
+			 ep->data, ep->len, controller_irq_in, dev,
+			 irq->bInterval);
 	ep->urb->transfer_dma = ep->dma;
 	ep->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 	return 0;
@@ -109,8 +107,8 @@ static int gc_init_out_ep(struct gc_data *dev,
 		return error;
 	usb_fill_int_urb(ep->urb, dev->udev,
 			 usb_sndintpipe(dev->udev, irq->bEndpointAddress),
-			 ep->data, ep->len,
-			 controller_irq_out, dev, irq->bInterval);
+			 ep->data, ep->len, controller_irq_out, dev,
+			 irq->bInterval);
 	ep->urb->transfer_dma = ep->dma;
 	ep->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 	init_usb_anchor(&out->anchor);
@@ -126,12 +124,13 @@ static void gc_deinit_ep(struct gc_data *dev, struct gc_ep *ep)
 
 int gc_init_endpoints(struct gc_data *dev)
 {
-	struct usb_endpoint_descriptor *eps[] = {NULL, NULL};
+	struct usb_endpoint_descriptor *eps[] = { NULL, NULL };
 	int error;
 
-	error = usb_find_common_endpoints(dev->intf->cur_altsetting,
-					  NULL, NULL, &eps[0], &eps[1]);
-	if (error || eps[0]->wMaxPacketSize != 37 || eps[1]->wMaxPacketSize != 5)
+	error = usb_find_common_endpoints(dev->intf->cur_altsetting, NULL, NULL,
+					  &eps[0], &eps[1]);
+	if (error || eps[0]->wMaxPacketSize != 37 ||
+	    eps[1]->wMaxPacketSize != 5)
 		return -ENODEV;
 	error = gc_init_out_ep(dev, eps[1]);
 	if (error)

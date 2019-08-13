@@ -23,13 +23,13 @@ static int gc_send(struct gc_data *dev, void *buf, size_t len)
 
 int gc_send_rumble(struct gc_data *gdata)
 {
-	u8 payload[5] = {0x11, gdata->rumbles[0], gdata->rumbles[1],
-			 gdata->rumbles[2], gdata->rumbles[3]};
+	u8 payload[5] = { 0x11, gdata->rumbles[0], gdata->rumbles[1],
+			  gdata->rumbles[2], gdata->rumbles[3] };
 	return gc_send(gdata, payload, sizeof(payload));
 }
 
 int gc_send_init(struct gc_data *gdata)
 {
-	u8 payload[] = {0x13};
+	u8 payload[] = { 0x13 };
 	return gc_send(gdata, payload, sizeof(payload));
 }

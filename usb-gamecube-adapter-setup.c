@@ -16,8 +16,7 @@ int gc_adapter_start_input(struct gc_data *dev)
 	return 0;
 }
 
-int gc_usb_probe(struct usb_interface *iface,
-		 const struct usb_device_id *id)
+int gc_usb_probe(struct usb_interface *iface, const struct usb_device_id *id)
 {
 	struct usb_device *udev = interface_to_usbdev(iface);
 	struct gc_data *dev;
@@ -63,10 +62,9 @@ static void gc_usb_disconnect(struct usb_interface *iface)
 }
 
 static const struct usb_device_id gc_usb_devices[] = {
-
 	{ USB_DEVICE(USB_VENDOR_ID_NINTENDO,
-		USB_DEVICE_ID_NINTENDO_GAMECUBE_ADAPTER) },
-	{ }
+		     USB_DEVICE_ID_NINTENDO_GAMECUBE_ADAPTER) },
+	{}
 };
 
 MODULE_DEVICE_TABLE(usb, gc_usb_devices);

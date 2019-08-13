@@ -14,6 +14,9 @@
 #endif
 #define USB_DEVICE_ID_NINTENDO_GAMECUBE_ADAPTER	0x0337
 
+#define STATE_NORMAL 0x10
+#define STATE_WAVEBIRD 0x20
+
 enum gamecube_status {
 	GAMECUBE_NONE,
 	GAMECUBE_WIRED,
@@ -21,15 +24,15 @@ enum gamecube_status {
 };
 
 struct gc_ep {
-	size_t			len;
-	u8			*data;
-	dma_addr_t		dma;
-	struct urb		*urb;
+	size_t		len;
+	u8		*data;
+	dma_addr_t	dma;
+	struct urb	*urb;
 };
 
 struct gc_out_ep {
 	struct gc_ep		ep;
-	struct usb_anchor 	anchor;
+	struct usb_anchor	anchor;
 	spinlock_t		lock;
 };
 
