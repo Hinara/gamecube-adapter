@@ -36,22 +36,15 @@ static DEVICE_ATTR(rumble, S_IRUGO | S_IWUSR | S_IWGRP, gc_rumble_show,
 
 /* Gamecube controller status attribute files */
 
-static const char *str_connected = "Connected\n";
-static const char *str_wr_connected = "Connected (Wireless)\n";
-static const char *str_disconnected = "Disconnected\n";
-
-static ssize_t gc_status(u8 status, char *buf)
+static enum gamecube_status gc_status(u8 status)
 {
 	switch (status & (STATE_NORMAL | STATE_WAVEBIRD)) {
 	case STATE_NORMAL:
-		memcpy(buf, str_connected, strlen(str_connected));
-		return strlen(str_connected);
+		return GAMECUBE_WIRED;
 	case STATE_WAVEBIRD:
-		memcpy(buf, str_wr_connected, strlen(str_wr_connected));
-		return strlen(str_wr_connected);
+		return GAMECUBE_WIRELESS;
 	default:
-		memcpy(buf, str_disconnected, strlen(str_disconnected));
-		return strlen(str_disconnected);
+		return GAMECUBE_NONE;
 	}
 }
 
@@ -61,7 +54,8 @@ static ssize_t gc_show_status(struct device *dev, struct device_attribute *attr,
 	struct gc_data *gdata = dev_get_drvdata(dev);
 	if (!gdata)
 		return -EFAULT;
-	return gc_status(gdata->data[1 + 9 * controller_no], buf);
+	return sprintf(buf, "%d\n",
+		       gc_status(gdata->data[1 + 9 * controller_no]));
 }
 
 static ssize_t gc_show_status1(struct device *dev,
