@@ -70,10 +70,10 @@ static const struct usb_device_id gc_usb_devices[] = {
 MODULE_DEVICE_TABLE(usb, gc_usb_devices);
 
 static struct usb_driver gc_usb_driver = {
-	.name = "gamecube_adapter",
-	.id_table = gc_usb_devices,
-	.probe = gc_usb_probe,
-	.disconnect = gc_usb_disconnect,
+	.name		= "gamecube_adapter",
+	.id_table	= gc_usb_devices,
+	.probe		= gc_usb_probe,
+	.disconnect	= gc_usb_disconnect,
 };
 
 module_usb_driver(gc_usb_driver);
