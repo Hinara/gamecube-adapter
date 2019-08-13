@@ -24,7 +24,7 @@ static ssize_t gc_rumble_store(struct device *dev,
 	gdata = dev_get_drvdata(dev);
 	if (!gdata)
 		return -EFAULT;
-	memcpy(gdata->rumbles, buf, 4);
+	memcpy(gdata->rumbles, buf, sizeof(gdata->rumbles));
 	res = gc_send_rumble(gdata);
 	if (res < 0)
 		return res;
