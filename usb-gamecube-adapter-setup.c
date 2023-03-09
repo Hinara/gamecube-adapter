@@ -1,4 +1,3 @@
-#include <linux/usb.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include "usb-gamecube-adapter.h"
@@ -9,11 +8,12 @@ int gc_adapter_start_input(struct gc_data *dev)
 	if (error)
 		return error;
 	error = gc_send_init(dev);
-	if (error) {
-		usb_kill_urb(dev->in.urb);
-		return error;
-	}
+	if (error)
+		goto failed_init;
 	return 0;
+failed_init:
+	usb_kill_urb(dev->in.urb);
+	return error;
 }
 
 int gc_usb_probe(struct usb_interface *iface, const struct usb_device_id *id)
@@ -52,11 +52,12 @@ err_free_devs:
 static void gc_usb_disconnect(struct usb_interface *iface)
 {
 	struct gc_data *dev = usb_get_intfdata(iface);
+
 	usb_kill_urb(dev->in.urb);
 	usb_kill_urb(dev->out.ep.urb);
-	usb_set_intfdata(iface, NULL);
 	gc_deinit_attr(dev);
 	gc_deinit_endpoints(dev);
+	usb_set_intfdata(iface, NULL);
 	kfree(dev);
 	return;
 }
