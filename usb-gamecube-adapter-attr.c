@@ -36,65 +36,47 @@ static DEVICE_ATTR(rumble, S_IRUGO | S_IWUSR | S_IWGRP, gc_rumble_show,
 
 /* Gamecube controller status attribute files */
 
-static enum gamecube_status gc_status(u8 status)
+static const char *gc_none_name = "Not connected";
+static const char *gc_wired_name = "Nintendo GameCube Controller";
+static const char *gc_wireless_name = "Nintendo GameCube Wavebird Controller";
+static const char *gc_unknown_name = "Unknown Controller";
+
+static const char *gc_getname(u8 status)
 {
 	switch (status & (STATE_NORMAL | STATE_WAVEBIRD)) {
+	case STATE_NONE:
+		return gc_none_name;
 	case STATE_NORMAL:
-		return GAMECUBE_WIRED;
+		return gc_wired_name;
 	case STATE_WAVEBIRD:
-		return GAMECUBE_WIRELESS;
+		return gc_wireless_name;
 	default:
-		return GAMECUBE_NONE;
+		return gc_unknown_name;
 	}
 }
 
-static ssize_t gc_show_status(struct device *dev, struct device_attribute *attr,
-			      char *buf, int controller_no)
+static ssize_t gc_show_status_g(struct device *dev,
+			       struct device_attribute *attr, char *buf)
 {
 	struct gc_data *gdata = dev_get_drvdata(dev);
 	if (!gdata)
 		return -EFAULT;
-	return sprintf(buf, "%d\n",
-		       gc_status(gdata->data[1 + 9 * controller_no]));
+	return sprintf(buf, "Port 1: %s\nPort 2: %s\nPort 3: %s\nPort 4: %s\n",
+		gc_getname(gdata->data[1 + 9 * 0]),
+		gc_getname(gdata->data[1 + 9 * 1]),
+		gc_getname(gdata->data[1 + 9 * 2]),
+		gc_getname(gdata->data[1 + 9 * 3]));
 }
 
-static ssize_t gc_show_status1(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	return gc_show_status(dev, attr, buf, 0);
-}
+static DEVICE_ATTR(status, S_IRUGO, gc_show_status_g, NULL);
 
-static DEVICE_ATTR(status1, S_IRUGO, gc_show_status1, NULL);
-
-static ssize_t gc_show_status2(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	return gc_show_status(dev, attr, buf, 1);
-}
-
-static DEVICE_ATTR(status2, S_IRUGO, gc_show_status2, NULL);
-
-static ssize_t gc_show_status3(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	return gc_show_status(dev, attr, buf, 2);
-}
-
-static DEVICE_ATTR(status3, S_IRUGO, gc_show_status3, NULL);
-
-static ssize_t gc_show_status4(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	return gc_show_status(dev, attr, buf, 3);
-}
-
-static DEVICE_ATTR(status4, S_IRUGO, gc_show_status4, NULL);
 
 /* Init and deinit of attributes files */
 
 static struct attribute *gc_attrs[] = {
-	&dev_attr_rumble.attr,  &dev_attr_status1.attr, &dev_attr_status2.attr,
-	&dev_attr_status3.attr, &dev_attr_status4.attr, NULL,
+	&dev_attr_rumble.attr,
+	&dev_attr_status.attr,
+	NULL,
 };
 
 static const struct attribute_group gc_attr_group = {
