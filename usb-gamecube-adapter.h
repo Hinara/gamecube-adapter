@@ -3,6 +3,7 @@
 
 #include <linux/device.h>
 #include <linux/usb.h>
+#include <linux/input.h>
 
 /*
  * USB_VENDOR_ID_NINTENDO Nintendo USB vendor ID
@@ -14,14 +15,26 @@
 #endif
 #define USB_DEVICE_ID_NINTENDO_GAMECUBE_ADAPTER	0x0337
 
+#define STATE_NONE	0x00
 #define STATE_NORMAL	0x10
 #define STATE_WAVEBIRD	0x20
 
-enum gamecube_status {
-	GAMECUBE_NONE,
-	GAMECUBE_WIRED,
-	GAMECUBE_WIRELESS
+enum gc_keys {
+   GAMECUBE_KEY_START,
+   GAMECUBE_KEY_TR2,
+   GAMECUBE_KEY_TR,
+   GAMECUBE_KEY_TL,
+   GAMECUBE_KEY_SOUTH,
+   GAMECUBE_KEY_WEST,
+   GAMECUBE_KEY_EAST,
+   GAMECUBE_KEY_NORTH,
+   GAMECUBE_KEY_DPAD_LEFT,
+   GAMECUBE_KEY_DPAD_RIGHT,
+   GAMECUBE_KEY_DPAD_DOWN,
+   GAMECUBE_KEY_DPAD_UP,
+   GAMECUBE_KEY_COUNT
 };
+
 
 struct gc_ep {
 	size_t		len;
@@ -44,6 +57,7 @@ struct gc_data {
 	u8			rumbles[4];
 	u8			data[37];
 	bool			halt;
+	struct input_dev	*input;
 };
 
 /* Packets */
