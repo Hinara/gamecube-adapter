@@ -1,24 +1,23 @@
-obj-m +=	usb-gamecube-adapter.o
 
-usb-gamecube-adapter-objs:= \
+CONFIG_HID_GAMECUBE_CONTROLLER?=m
+obj-$(CONFIG_HID_GAMECUBE_CONTROLLER)	+= usb-gamecube-adapter.o
+usb-gamecube-adapter-y:= \
 	usb-gamecube-adapter-attr.o \
 	usb-gamecube-adapter-packet.o \
 	usb-gamecube-adapter-setup.o \
 	usb-gamecube-adapter-endpoints.o \
 
-modules = $(obj-m:.o=.ko)
+KDIR?=/lib/modules/$(shell uname -r)/build
 
-all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+modules:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+modules_install:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules_install
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
-up:
-	sudo insmod $(modules)
-down:
-	sudo rmmod $(modules)
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+help:
+	$(MAKE) -C $(KDIR) M=$(PWD) help
+sign:
+	$(mod_sign_cmd) $('')
 
-du:
-	make down
-	make up
-
-.PHONY: all clean up down
+.PHONY: modules modules_install clean help sign
