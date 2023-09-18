@@ -2,9 +2,10 @@ obj-m +=	usb-gamecube-adapter.o
 
 usb-gamecube-adapter-objs:= \
 	usb-gamecube-adapter-attr.o \
-	usb-gamecube-adapter-packet.o \
 	usb-gamecube-adapter-setup.o \
-	usb-gamecube-adapter-endpoints.o \
+	usb-gamecube-adapter-input.o \
+
+#	usb-gamecube-adapter-endpoints.o \
 
 modules = $(obj-m:.o=.ko)
 

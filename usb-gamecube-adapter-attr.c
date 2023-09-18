@@ -2,29 +2,29 @@
 
 /* Gamecube adapter rumble device file */
 
+/*
 static ssize_t gc_rumble_show(struct device *dev, struct device_attribute *attr,
 			      char *buf)
 {
 	struct gc_data *gdata = dev_get_drvdata(dev);
 	if (!gdata)
 		return -EFAULT;
-	return sprintf(buf, "%d %d %d %d\n", gdata->rumbles[0],
-		       gdata->rumbles[1], gdata->rumbles[2], gdata->rumbles[3]);
+	return sprintf(buf, "%d %d %d %d\n", gdata->odata_rumbles[0],
+		       gdata->odata_rumbles[1], gdata->odata_rumbles[2], gdata->odata_rumbles[3]);
 }
-
 static ssize_t gc_rumble_store(struct device *dev,
 			       struct device_attribute *attr, const char *buf,
 			       size_t count)
 {
 	struct gc_data *gdata;
 	int res;
-	if (count != sizeof(gdata->rumbles)) {
+	if (count != sizeof(gdata->odata_rumbles)) {
 		return -EINVAL;
 	}
 	gdata = dev_get_drvdata(dev);
 	if (!gdata)
 		return -EFAULT;
-	memcpy(gdata->rumbles, buf, sizeof(gdata->rumbles));
+	memcpy(gdata->odata_rumbles, buf, sizeof(gdata->odata_rumbles));
 	res = gc_send_rumble(gdata);
 	if (res < 0)
 		return res;
@@ -33,7 +33,7 @@ static ssize_t gc_rumble_store(struct device *dev,
 
 static DEVICE_ATTR(rumble, S_IRUGO | S_IWUSR | S_IWGRP, gc_rumble_show,
 		   gc_rumble_store);
-
+*/
 /* Gamecube controller status attribute files */
 
 static enum gamecube_status gc_status(u8 status)
@@ -55,7 +55,7 @@ static ssize_t gc_show_status(struct device *dev, struct device_attribute *attr,
 	if (!gdata)
 		return -EFAULT;
 	return sprintf(buf, "%d\n",
-		       gc_status(gdata->data[1 + 9 * controller_no]));
+		       gc_status(gdata->idata[1 + 9 * controller_no]));
 }
 
 static ssize_t gc_show_status1(struct device *dev,
@@ -93,8 +93,12 @@ static DEVICE_ATTR(status4, S_IRUGO, gc_show_status4, NULL);
 /* Init and deinit of attributes files */
 
 static struct attribute *gc_attrs[] = {
-	&dev_attr_rumble.attr,  &dev_attr_status1.attr, &dev_attr_status2.attr,
-	&dev_attr_status3.attr, &dev_attr_status4.attr, NULL,
+//	&dev_attr_rumble.attr,
+	&dev_attr_status1.attr,
+	&dev_attr_status2.attr,
+	&dev_attr_status3.attr,
+	&dev_attr_status4.attr,
+	NULL,
 };
 
 static const struct attribute_group gc_attr_group = {

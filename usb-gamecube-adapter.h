@@ -17,48 +17,52 @@
 #define STATE_NORMAL	0x10
 #define STATE_WAVEBIRD	0x20
 
+#define EP_IN  0x81
+#define EP_OUT 0x02
+
+#define GCC_OUT_PKT_LEN 5
+#define GCC_IN_PKT_LEN 37
+
 enum gamecube_status {
 	GAMECUBE_NONE,
-	GAMECUBE_WIRED,
-	GAMECUBE_WIRELESS
+	GAMECUBE_WIRED = 0x10,
+	GAMECUBE_WIRELESS = 0x20,
 };
 
-struct gc_ep {
-	size_t len;
-	u8 *data;
-	dma_addr_t dma;
-	struct urb *urb;
-};
-
-struct gc_out_ep {
-	struct gc_ep ep;
-	struct usb_anchor anchor;
-	spinlock_t lock;
+struct gcc_data {
+	struct gc_data *adapter;
+	struct input_dev *input;
+	u8 no;
+	u8 status;
 };
 
 struct gc_data {
 	struct usb_device *udev;
 	struct usb_interface *intf;
-	struct gc_ep in;
-	struct gc_out_ep out;
-	u8 rumbles[4];
-	u8 data[37];
-	bool halt;
+
+	struct urb *irq_in;
+	u8 *idata;
+	dma_addr_t idata_dma;
+	
+	struct urb *irq_out;	
+	struct usb_anchor irq_out_anchor;
+	bool irq_out_active;		/* we must not use an active URB */
+	u8 *odata;
+	u8 odata_rumbles[4];
+	bool rumble_changed;		/* if rumble need update*/
+	dma_addr_t odata_dma;
+	spinlock_t odata_lock;		/* output data */
+
+	struct gcc_data controllers[4];
 };
-
-/* Packets */
-int gc_send_rumble(struct gc_data *gdata);
-int gc_send_init(struct gc_data *gdata);
-
-/* Display */
-void gc_display_state(struct gc_data *dev);
 
 /* Device attributes */
 int gc_init_attr(struct gc_data *gdata);
 void gc_deinit_attr(struct gc_data *gdata);
 
-/* Endpoints */
-int gc_init_endpoints(struct gc_data *dev);
-void gc_deinit_endpoints(struct gc_data *dev);
+/* IRQ */
+//int gc_init_irq(struct gc_data *gdata);
+//void gc_deinit_irq(struct gc_data *gdata);
+int gc_set_rumble_value(struct gc_data *gdata, u8 controller, u8 value);
 
 #endif // __GAMECUBE_ADAPTER_H_FILE
