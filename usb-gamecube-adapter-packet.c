@@ -11,14 +11,15 @@ static int gc_send(struct gc_data *dev, void *buf, size_t len)
 	spin_lock_irqsave(&dev->out.lock, flags);
 	memcpy(packet, buf, len);
 	dev->out.ep.urb->transfer_buffer_length = len;
+
 	usb_anchor_urb(dev->out.ep.urb, &dev->out.anchor);
 	error = usb_submit_urb(dev->out.ep.urb, GFP_ATOMIC);
 	if (error) {
 		usb_unanchor_urb(dev->out.ep.urb);
-		return error;
+		error = -EIO;
 	}
 	spin_unlock_irqrestore(&dev->out.lock, flags);
-	return 0;
+	return error;
 }
 
 int gc_send_rumble(struct gc_data *gdata)
