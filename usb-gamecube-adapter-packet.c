@@ -15,6 +15,9 @@ static int gc_send(struct gc_data *dev, void *buf, size_t len)
 	usb_anchor_urb(dev->out.ep.urb, &dev->out.anchor);
 	error = usb_submit_urb(dev->out.ep.urb, GFP_ATOMIC);
 	if (error) {
+		dev_err(&dev->intf->dev,
+			"%s - usb_submit_urb failed with result %d\n",
+			__func__, error);
 		usb_unanchor_urb(dev->out.ep.urb);
 		error = -EIO;
 	}
