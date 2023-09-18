@@ -24,26 +24,26 @@ enum gamecube_status {
 };
 
 struct gc_ep {
-	size_t		len;
-	u8		*data;
-	dma_addr_t	dma;
-	struct urb	*urb;
+	size_t len;
+	u8 *data;
+	dma_addr_t dma;
+	struct urb *urb;
 };
 
 struct gc_out_ep {
-	struct gc_ep		ep;
-	struct usb_anchor	anchor;
-	spinlock_t		lock;
+	struct gc_ep ep;
+	struct usb_anchor anchor;
+	spinlock_t lock;
 };
 
 struct gc_data {
-	struct usb_device	*udev;
-	struct usb_interface	*intf;
-	struct gc_ep		in;
-	struct gc_out_ep	out;
-	u8			rumbles[4];
-	u8			data[37];
-	bool			halt;
+	struct usb_device *udev;
+	struct usb_interface *intf;
+	struct gc_ep in;
+	struct gc_out_ep out;
+	u8 rumbles[4];
+	u8 data[37];
+	bool halt;
 };
 
 /* Packets */
