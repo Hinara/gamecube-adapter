@@ -34,15 +34,19 @@ struct gcc_data {
 	struct input_dev *input;
 	u8 no;
 	u8 status;
+	u8 last_status;
 };
 
 struct gc_data {
+	char phys[64];
+
 	struct usb_device *udev;
 	struct usb_interface *intf;
 
 	struct urb *irq_in;
 	u8 *idata;
 	dma_addr_t idata_dma;
+	spinlock_t idata_lock;
 	
 	struct urb *irq_out;	
 	struct usb_anchor irq_out_anchor;
@@ -54,15 +58,7 @@ struct gc_data {
 	spinlock_t odata_lock;		/* output data */
 
 	struct gcc_data controllers[4];
+	struct work_struct work;	/* create/delete controller input files */
 };
-
-/* Device attributes */
-int gc_init_attr(struct gc_data *gdata);
-void gc_deinit_attr(struct gc_data *gdata);
-
-/* IRQ */
-//int gc_init_irq(struct gc_data *gdata);
-//void gc_deinit_irq(struct gc_data *gdata);
-int gc_set_rumble_value(struct gc_data *gdata, u8 controller, u8 value);
 
 #endif // __GAMECUBE_ADAPTER_H_FILE

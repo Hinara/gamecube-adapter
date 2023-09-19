@@ -1,7 +1,8 @@
 #include <linux/usb.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include "usb-gamecube-adapter.h"
+#include <linux/input.h>
+#include <linux/usb/input.h>
 
 #include "usb-gamecube-adapter.h"
 
@@ -103,6 +104,225 @@ static void gc_deinit_output(struct gc_data *gdata)
 			 gdata->odata_dma);
 }
 
+static void gcc_input(struct gcc_data *gccdata, const u8 *keys)
+{
+	input_report_key(gccdata->input, BTN_A, !!(keys[1] & BIT(0)));
+	input_report_key(gccdata->input, BTN_B, !!(keys[1] & BIT(1)));
+	input_report_key(gccdata->input, BTN_X, !!(keys[1] & BIT(2)));
+	input_report_key(gccdata->input, BTN_Y, !!(keys[1] & BIT(3)));
+	input_report_key(gccdata->input, BTN_DPAD_LEFT, !!(keys[1] & BIT(4)));
+	input_report_key(gccdata->input, BTN_DPAD_RIGHT, !!(keys[1] & BIT(5)));
+	input_report_key(gccdata->input, BTN_DPAD_DOWN, !!(keys[1] & BIT(6)));
+	input_report_key(gccdata->input, BTN_DPAD_UP, !!(keys[1] & BIT(7)));
+
+	input_report_key(gccdata->input, BTN_START, !!(keys[2] & BIT(0)));
+	input_report_key(gccdata->input, BTN_TR2, !!(keys[2] & BIT(1)));
+	input_report_key(gccdata->input, BTN_TR, !!(keys[2] & BIT(2)));
+	input_report_key(gccdata->input, BTN_TL, !!(keys[2] & BIT(3)));
+
+	input_report_abs(gccdata->input, ABS_X, keys[3]);
+	input_report_abs(gccdata->input, ABS_Y, keys[4] ^ 0xFF);
+	input_report_abs(gccdata->input, ABS_RX, keys[5]);
+	input_report_abs(gccdata->input, ABS_RY, keys[6] ^ 0xFF);
+	input_report_abs(gccdata->input, ABS_Z, keys[7]);
+	input_report_abs(gccdata->input, ABS_RZ, keys[8]);
+
+	input_sync(gccdata->input);
+}
+
+static bool gc_is_valid_controller(u8 status)
+{
+	unsigned char type = status & (STATE_NORMAL | STATE_WAVEBIRD);
+	switch (type)
+	{
+		case STATE_NORMAL:
+		case STATE_WAVEBIRD:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static int gc_set_rumble_value(struct gc_data *gdata, u8 controller, u8 value)
+{
+	unsigned long flags;
+	int error;
+
+	value = !!value;
+	if (controller > 4)
+		return -EINVAL;
+
+	spin_lock_irqsave(&gdata->odata_lock, flags);
+	if (gdata->odata_rumbles[controller] == value) {
+		spin_unlock_irqrestore(&gdata->odata_lock, flags);
+		return 0;
+	}
+	gdata->odata_rumbles[controller] = value;
+	gdata->rumble_changed = true;
+	if (!gdata->irq_out_active) {
+		error = gc_queue_rumble(gdata);
+	}
+	spin_unlock_irqrestore(&gdata->odata_lock, flags);
+	return error;
+}
+
+static int gc_rumble_play(struct input_dev *dev, void *data,
+			      struct ff_effect *eff)
+{
+	struct gcc_data *gccdata = input_get_drvdata(dev);
+	u8 value;
+
+	/*
+	 * The gamecube controller  supports only a single rumble motor so if any
+	 * magnitude is set to non-zero then we start the rumble motor. If both are
+	 * set to zero, we stop the rumble motor.
+	 */
+
+	if (eff->u.rumble.strong_magnitude || eff->u.rumble.weak_magnitude)
+		value = 1;
+	else
+		value = 0;
+	return gc_set_rumble_value(gccdata->adapter, gccdata->no, value);
+}
+
+static u8 gc_connected_type(u8 status)
+{
+	u8 type = status & (STATE_NORMAL | STATE_WAVEBIRD);
+	switch (type)
+	{
+		case STATE_NORMAL:
+		case STATE_WAVEBIRD:
+			return type;
+		default:
+			return 0;
+	}
+}
+
+static int gc_init_controller(struct gcc_data *gccdev, u8 status)
+{
+	u8 type = gc_connected_type(status);
+	bool extra_power = ((status & 0x04) != 0);
+	int error;
+
+	gccdev->input = input_allocate_device();
+	if (!gccdev->input)
+		return -ENOMEM;
+
+	input_set_drvdata(gccdev->input, gccdev);
+	usb_to_input_id(gccdev->adapter->udev, &gccdev->input->id);
+	gccdev->input->name = "Nintendo GameCube Controller";
+	gccdev->input->phys = gccdev->adapter->phys;
+
+	set_bit(EV_KEY, gccdev->input->evbit);
+
+	set_bit(BTN_A, gccdev->input->keybit);
+	set_bit(BTN_B, gccdev->input->keybit);
+	set_bit(BTN_X, gccdev->input->keybit);
+	set_bit(BTN_Y, gccdev->input->keybit);
+	set_bit(BTN_DPAD_LEFT, gccdev->input->keybit);
+	set_bit(BTN_DPAD_RIGHT, gccdev->input->keybit);
+	set_bit(BTN_DPAD_DOWN, gccdev->input->keybit);
+	set_bit(BTN_DPAD_UP, gccdev->input->keybit);
+	set_bit(BTN_START, gccdev->input->keybit);
+	set_bit(BTN_TR2, gccdev->input->keybit);
+	set_bit(BTN_TR, gccdev->input->keybit);
+	set_bit(BTN_TL, gccdev->input->keybit);
+
+	set_bit(EV_ABS, gccdev->input->evbit);
+
+	set_bit(ABS_X, gccdev->input->absbit);
+	set_bit(ABS_Y, gccdev->input->absbit);
+	set_bit(ABS_RX, gccdev->input->absbit);
+	set_bit(ABS_RY, gccdev->input->absbit);
+	set_bit(ABS_Z, gccdev->input->absbit);
+	set_bit(ABS_RZ, gccdev->input->absbit);
+
+	input_set_abs_params(gccdev->input, ABS_X, 0, 255, 16, 16);
+	input_set_abs_params(gccdev->input, ABS_Y, 0, 255, 16, 16);
+	input_set_abs_params(gccdev->input, ABS_RX, 0, 255, 16, 16);
+	input_set_abs_params(gccdev->input, ABS_RY, 0, 255, 16, 16);
+	input_set_abs_params(gccdev->input, ABS_Z, 0, 255, 16, 0);
+	input_set_abs_params(gccdev->input, ABS_RZ, 0, 255, 16, 0);
+
+	if (type == GAMECUBE_WIRED && extra_power) {
+		input_set_capability(gccdev->input, EV_FF, FF_RUMBLE);
+		error = input_ff_create_memless(gccdev->input, NULL, gc_rumble_play);
+		if (error) 
+			goto gc_deinit_controller;
+	}
+	error = input_register_device(gccdev->input);
+	if (error)
+		goto gc_deinit_ff_controller;
+	return 0;
+gc_deinit_ff_controller:
+	if (type == GAMECUBE_WIRED && extra_power) {
+		input_ff_destroy(gccdev->input);
+	}
+gc_deinit_controller:
+	input_free_device(gccdev->input);
+	return error;
+}
+
+static void gc_controller_update_work(struct work_struct *work)
+{
+	int i;
+	u8 status[4];
+	unsigned long flags;
+	struct gc_data *gdata = container_of(work, struct gc_data, work);
+
+	for (i = 0; i < 4; i++) {
+		status[i] = gdata->controllers[i].last_status;
+	}
+
+	for (i = 0; i < 4; i++) {
+		if (gc_is_valid_controller(status[i]) &&
+				 !gc_is_valid_controller(gdata->controllers[i].status)) {
+			if (gc_init_controller(&gdata->controllers[i], status[i]) != 0) {
+				status[i] = GAMECUBE_NONE;
+			}
+		}
+	}
+
+	spin_lock_irqsave(&gdata->idata_lock, flags);
+	for (i = 0; i < 4; i++) {
+		swap(gdata->controllers[i].status, status[i]);
+	}
+	spin_unlock_irqrestore(&gdata->idata_lock, flags);
+
+	for (i = 0; i < 4; i++) {
+		if (gc_is_valid_controller(status[i]) &&
+				 !gc_is_valid_controller(gdata->controllers[i].status)) {
+			if (gc_connected_type(status[i]) == GAMECUBE_WIRED &&
+					 ((status[i] & 0x04) != 0)) {
+				input_ff_destroy(gdata->controllers[i].input);
+			}
+			input_unregister_device(gdata->controllers[i].input);
+		}
+	}
+}
+
+static void gc_input(struct gc_data *gdata)
+{
+	int i;
+	unsigned long flags;
+	bool updated = false;
+
+	for (i = 0; i < 4; i++) {
+		updated = updated || 
+			 gdata->idata[1 + 9 * i] != gdata->controllers[i].last_status;
+		gdata->controllers[i].last_status = gdata->idata[1 + 9 * i];
+	}
+	if (updated)
+		schedule_work(&gdata->work);
+	spin_lock_irqsave(&gdata->idata_lock, flags);
+	for (i = 0; i < 4; i++) {
+		if (gc_is_valid_controller(gdata->controllers[i].status)) {
+			gcc_input(&gdata->controllers[i], &gdata->idata[1 + 9 * i]);
+		}
+	}
+	spin_unlock_irqrestore(&gdata->idata_lock, flags);
+}
+
 static void gc_irq_in(struct urb *urb)
 {
 	struct gc_data *gdata = urb->context;
@@ -128,7 +348,7 @@ static void gc_irq_in(struct urb *urb)
 	else if (gdata->idata[0] != 0x21)
 		dev_warn(&intf->dev, "Unknown opcode %d\n", gdata->idata[0]);
 	else
-		; // TODO: code the handler function
+		gc_input(gdata);
 exit:
 	error = usb_submit_urb(gdata->irq_in, GFP_ATOMIC);
 	if (error)
@@ -155,6 +375,10 @@ static int gc_init_input(struct gc_data *gdata,
 			 irq->bInterval);
 	gdata->irq_in->transfer_dma = gdata->idata_dma;
 	gdata->irq_in->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+
+	spin_lock_init(&gdata->idata_lock);
+	INIT_WORK(&gdata->work, gc_controller_update_work);
+	
 	return 0;
 
 err_free_coherent:
@@ -229,34 +453,10 @@ static void gc_deinit_irq(struct gc_data *gdata)
 	}
 	usb_kill_urb(gdata->irq_in);
 	/* Make sure we are done with presence work if it was scheduled */
-	//flush_work(&xpad->work);
-	// TODO: Clean worker
+	flush_work(&gdata->work);
 
 	gc_deinit_input(gdata);
 	gc_deinit_output(gdata);
-}
-
-int gc_set_rumble_value(struct gc_data *gdata, u8 controller, u8 value)
-{
-	unsigned long flags;
-	int error;
-
-	value = !!value;
-	if (controller > 4)
-		return -EINVAL;
-
-	spin_lock_irqsave(&gdata->odata_lock, flags);
-	if (gdata->odata_rumbles[controller] == value) {
-		spin_unlock_irqrestore(&gdata->odata_lock, flags);
-		return 0;
-	}
-	gdata->odata_rumbles[controller] = value;
-	gdata->rumble_changed = true;
-	if (!gdata->irq_out_active) {
-		error = gc_queue_rumble(gdata);
-	}
-	spin_unlock_irqrestore(&gdata->odata_lock, flags);
-	return error;
 }
 
 static void gc_init_controllers(struct gc_data *gdata)
@@ -267,10 +467,30 @@ static void gc_init_controllers(struct gc_data *gdata)
 		gdata->controllers[i].adapter = gdata;
 		gdata->controllers[i].no = i;
 		gdata->controllers[i].status = GAMECUBE_NONE;
+		gdata->controllers[i].last_status = GAMECUBE_NONE;
 	}
 }
 
-int gc_usb_probe(struct usb_interface *iface, const struct usb_device_id *id)
+static struct attribute *gc_attrs[] = {
+	NULL,
+};
+
+static const struct attribute_group gc_attr_group = {
+	.attrs = gc_attrs,
+};
+
+static int gc_init_attr(struct gc_data *gdata)
+{
+	return sysfs_create_group(&gdata->intf->dev.kobj, &gc_attr_group);
+}
+
+static void gc_deinit_attr(struct gc_data *gdata)
+{
+	sysfs_remove_group(&gdata->intf->dev.kobj, &gc_attr_group);
+}
+
+
+static int gc_usb_probe(struct usb_interface *iface, const struct usb_device_id *id)
 {
 	struct usb_device *udev = interface_to_usbdev(iface);
 	struct gc_data *gdata;
@@ -282,6 +502,10 @@ int gc_usb_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	usb_set_intfdata(iface, gdata);
 	gdata->udev = udev;
 	gdata->intf = iface;
+
+	usb_make_path(udev, gdata->phys, sizeof(gdata->phys));
+	strlcat(gdata->phys, "/input0", sizeof(gdata->phys));
+
 	gc_init_controllers(gdata);
 	error = gc_init_irq(gdata);
 	if (error)
