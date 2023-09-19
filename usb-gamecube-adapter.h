@@ -14,9 +14,6 @@
 #endif
 #define USB_DEVICE_ID_NINTENDO_GAMECUBE_ADAPTER	0x0337
 
-#define STATE_NORMAL	0x10
-#define STATE_WAVEBIRD	0x20
-
 #define EP_IN  0x81
 #define EP_OUT 0x02
 
@@ -34,7 +31,7 @@ struct gcc_data {
 	struct input_dev *input;
 	u8 no;
 	u8 status;
-	u8 last_status;
+	bool enable;
 };
 
 struct gc_data {

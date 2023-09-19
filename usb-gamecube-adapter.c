@@ -130,19 +130,6 @@ static void gcc_input(struct gcc_data *gccdata, const u8 *keys)
 	input_sync(gccdata->input);
 }
 
-static bool gc_is_valid_controller(u8 status)
-{
-	unsigned char type = status & (STATE_NORMAL | STATE_WAVEBIRD);
-	switch (type)
-	{
-		case STATE_NORMAL:
-		case STATE_WAVEBIRD:
-			return true;
-		default:
-			return false;
-	}
-}
-
 static int gc_set_rumble_value(struct gc_data *gdata, u8 controller, u8 value)
 {
 	unsigned long flags;
@@ -187,21 +174,19 @@ static int gc_rumble_play(struct input_dev *dev, void *data,
 
 static u8 gc_connected_type(u8 status)
 {
-	u8 type = status & (STATE_NORMAL | STATE_WAVEBIRD);
+	u8 type = status & (GAMECUBE_WIRED | GAMECUBE_WIRELESS);
 	switch (type)
 	{
-		case STATE_NORMAL:
-		case STATE_WAVEBIRD:
+		case GAMECUBE_WIRED:
+		case GAMECUBE_WIRELESS:
 			return type;
 		default:
 			return 0;
 	}
 }
 
-static int gc_init_controller(struct gcc_data *gccdev, u8 status)
+static int gc_controller_init(struct gcc_data *gccdev, u8 status)
 {
-	u8 type = gc_connected_type(status);
-	bool extra_power = ((status & 0x04) != 0);
 	int error;
 
 	gccdev->input = input_allocate_device();
@@ -244,20 +229,21 @@ static int gc_init_controller(struct gcc_data *gccdev, u8 status)
 	input_set_abs_params(gccdev->input, ABS_Z, 0, 255, 16, 0);
 	input_set_abs_params(gccdev->input, ABS_RZ, 0, 255, 16, 0);
 
-	if (type == GAMECUBE_WIRED && extra_power) {
-		input_set_capability(gccdev->input, EV_FF, FF_RUMBLE);
-		error = input_ff_create_memless(gccdev->input, NULL, gc_rumble_play);
-		if (error) 
-			goto gc_deinit_controller;
+	error = input_ff_create_memless(gccdev->input, NULL, gc_rumble_play);
+	if (error) {
+		dev_warn(&gccdev->input->dev, "Could not create ff (skipped)");
+		goto gc_deinit_controller;
 	}
+	input_set_capability(gccdev->input, EV_FF, FF_RUMBLE);
+
 	error = input_register_device(gccdev->input);
 	if (error)
-		goto gc_deinit_ff_controller;
+		goto gc_deinit_controller_ff;
+	gccdev->enable = true;
 	return 0;
-gc_deinit_ff_controller:
-	if (type == GAMECUBE_WIRED && extra_power) {
-		input_ff_destroy(gccdev->input);
-	}
+
+gc_deinit_controller_ff:
+	input_ff_destroy(gccdev->input);
 gc_deinit_controller:
 	input_free_device(gccdev->input);
 	return error;
@@ -267,36 +253,32 @@ static void gc_controller_update_work(struct work_struct *work)
 {
 	int i;
 	u8 status[4];
+	bool enable[4];
 	unsigned long flags;
 	struct gc_data *gdata = container_of(work, struct gc_data, work);
 
 	for (i = 0; i < 4; i++) {
-		status[i] = gdata->controllers[i].last_status;
+		status[i] = gdata->controllers[i].status;
+		enable[i] = gc_connected_type(status[i]) != 0;
 	}
 
 	for (i = 0; i < 4; i++) {
-		if (gc_is_valid_controller(status[i]) &&
-				 !gc_is_valid_controller(gdata->controllers[i].status)) {
-			if (gc_init_controller(&gdata->controllers[i], status[i]) != 0) {
-				status[i] = GAMECUBE_NONE;
-			}
+		if (enable[i] && !gdata->controllers[i].enable) {
+			if (gc_controller_init(&gdata->controllers[i], status[i]) != 0)
+				enable[i] = false;
 		}
 	}
 
 	spin_lock_irqsave(&gdata->idata_lock, flags);
 	for (i = 0; i < 4; i++) {
-		swap(gdata->controllers[i].status, status[i]);
+		swap(gdata->controllers[i].enable, enable[i]);
 	}
 	spin_unlock_irqrestore(&gdata->idata_lock, flags);
 
 	for (i = 0; i < 4; i++) {
-		if (gc_is_valid_controller(status[i]) &&
-				 !gc_is_valid_controller(gdata->controllers[i].status)) {
-			if (gc_connected_type(status[i]) == GAMECUBE_WIRED &&
-					 ((status[i] & 0x04) != 0)) {
-				input_ff_destroy(gdata->controllers[i].input);
-			}
+		if (enable[i] && !gdata->controllers[i].enable) {
 			input_unregister_device(gdata->controllers[i].input);
+			gdata->controllers[i].enable = false;
 		}
 	}
 }
@@ -309,14 +291,14 @@ static void gc_input(struct gc_data *gdata)
 
 	for (i = 0; i < 4; i++) {
 		updated = updated || 
-			 gdata->idata[1 + 9 * i] != gdata->controllers[i].last_status;
-		gdata->controllers[i].last_status = gdata->idata[1 + 9 * i];
+			 gdata->idata[1 + 9 * i] != gdata->controllers[i].status;
+		gdata->controllers[i].status = gdata->idata[1 + 9 * i];
 	}
 	if (updated)
 		schedule_work(&gdata->work);
 	spin_lock_irqsave(&gdata->idata_lock, flags);
 	for (i = 0; i < 4; i++) {
-		if (gc_is_valid_controller(gdata->controllers[i].status)) {
+		if (gdata->controllers[i].enable) {
 			gcc_input(&gdata->controllers[i], &gdata->idata[1 + 9 * i]);
 		}
 	}
@@ -467,7 +449,7 @@ static void gc_init_controllers(struct gc_data *gdata)
 		gdata->controllers[i].adapter = gdata;
 		gdata->controllers[i].no = i;
 		gdata->controllers[i].status = GAMECUBE_NONE;
-		gdata->controllers[i].last_status = GAMECUBE_NONE;
+		gdata->controllers[i].enable = false;
 	}
 }
 
@@ -525,11 +507,18 @@ err_free_devs:
 
 static void gc_usb_disconnect(struct usb_interface *iface)
 {
-	struct gc_data *gdat = usb_get_intfdata(iface);
-	gc_deinit_attr(gdat);
-	gc_deinit_irq(gdat);
+	int i;
+	struct gc_data *gdata = usb_get_intfdata(iface);
+
+	for (i = 0; i < 4; i++) {
+		if (gdata->controllers[i].enable) {
+			input_unregister_device(gdata->controllers[i].input);
+		}
+	}
+	gc_deinit_attr(gdata);
+	gc_deinit_irq(gdata);
 	usb_set_intfdata(iface, NULL);
-	kfree(gdat);
+	kfree(gdata);
 	return;
 }
 
