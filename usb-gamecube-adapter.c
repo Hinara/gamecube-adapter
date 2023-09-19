@@ -278,7 +278,6 @@ static void gc_controller_update_work(struct work_struct *work)
 	for (i = 0; i < 4; i++) {
 		if (enable[i] && !gdata->controllers[i].enable) {
 			input_unregister_device(gdata->controllers[i].input);
-			gdata->controllers[i].enable = false;
 		}
 	}
 }
