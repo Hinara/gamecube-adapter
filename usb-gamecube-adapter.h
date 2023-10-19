@@ -2,7 +2,7 @@
 #define __GAMECUBE_ADAPTER_H_FILE
 
 #include <linux/device.h>
-#include <linux/usb.h>
+#include <linux/hid.h>
 
 /*
  * USB_VENDOR_ID_NINTENDO Nintendo USB vendor ID
@@ -13,6 +13,8 @@
 #define USB_VENDOR_ID_NINTENDO			0x057e
 #endif
 #define USB_DEVICE_ID_NINTENDO_GCADAPTER	0x0337
+
+#define GCADAPTER_NAME "Nintendo GameCube Controller Adapter"
 
 #define EP_IN  0x81
 #define EP_OUT 0x02
@@ -35,27 +37,19 @@ struct gcc_data {
 };
 
 struct gc_data {
-	char phys[64];
+	struct hid_device *hdev;
 
-	struct usb_device *udev;
-	struct usb_interface *intf;
-
-	struct urb *irq_in;
-	u8 *idata;
-	dma_addr_t idata_dma;
-	spinlock_t idata_lock;
-	
-	struct urb *irq_out;	
-	struct usb_anchor irq_out_anchor;
-	bool irq_out_active;		/* we must not use an active URB */
-	u8 *odata;
-	u8 odata_rumbles[4];
-	bool rumble_changed;		/* if rumble need update*/
-	dma_addr_t odata_dma;
-	spinlock_t odata_lock;		/* output data */
-
+	/* Status */
 	struct gcc_data controllers[4];
-	struct work_struct work;	/* create/delete controller input files */
+	spinlock_t update_lock;
+	struct work_struct update_work;	/* send rumble packets */
+
+	/* Rumbles */
+	u8 rumbles[4];
+	bool rumble_changed;
+	u8 *rumbles_buffer;
+	spinlock_t rumble_lock;
+	struct work_struct rumble_work;	/* create/delete controller input files */
 };
 
 #endif // __GAMECUBE_ADAPTER_H_FILE
