@@ -7,3 +7,4 @@
 Module.symvers
 modules.order
 .vscode/
+**/*.d
